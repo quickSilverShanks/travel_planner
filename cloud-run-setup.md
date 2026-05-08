@@ -1,53 +1,90 @@
 # Deployment on Google Cloud Run
 
-To deploy this application to Google Cloud Run, follow these steps.
+To deploy this application to Google Cloud Run using the **Google Cloud Shell**, follow these exact steps.
 
-## Prerequisites
-- Google Cloud CLI (`gcloud`) installed and configured.
-- A Google Cloud Project with Billing enabled.
-- Artifact Registry, Cloud Run, and Cloud SQL Admin APIs enabled.
+## Step 1: Open Cloud Shell
+1. Go to your [Google Cloud Console](https://console.cloud.google.com/?project=travel-planner-495707) and ensure your project `travel-planner-495707` is selected.
+2. Click the **Activate Cloud Shell** icon (`>_`) in the top right corner.
 
-## 1. Set up Database (Cloud SQL for PostgreSQL)
-1. In GCP Console, create a Cloud SQL PostgreSQL instance.
-2. Create a database `travel_planner` and a user.
-3. Note the connection string and instance connection name.
-
-## 2. Build and Push Backend Image
-1. Create a repository in Artifact Registry:
+## Step 2: Upload Your Code
+1. In the Cloud Shell editor, click on the **three dots** (More) menu in the top right of the terminal window.
+2. Select **Upload**.
+3. Select the `travel_planner` folder from your computer to upload it (or push your code to GitHub from your local machine and run `git clone <your-repo-url>` in the Cloud Shell).
+4. Once uploaded, navigate into the folder:
    ```bash
-   gcloud artifacts repositories create travel-planner-repo --repository-format=docker --location=us-central1
-   ```
-2. Build and push the backend:
-   ```bash
-   cd backend
-   gcloud builds submit --tag us-central1-docker.pkg.dev/YOUR_PROJECT_ID/travel-planner-repo/backend
+   cd travel_planner
    ```
 
-## 3. Build and Push Frontend Image
-1. Before building the frontend, ensure it uses the Cloud Run Backend URL (you might need to deploy the backend first to get the URL, then pass it as `NEXT_PUBLIC_API_URL` during build, or handle it dynamically at runtime if using SSR).
-2. Build and push the frontend:
-   ```bash
-   cd frontend
-   gcloud builds submit --tag us-central1-docker.pkg.dev/YOUR_PROJECT_ID/travel-planner-repo/frontend
-   ```
+## Step 3: Enable Required APIs
+Run this command to ensure all necessary services are enabled for your project:
+```bash
+gcloud services enable run.googleapis.com \
+    sqladmin.googleapis.com \
+    artifactregistry.googleapis.com \
+    cloudbuild.googleapis.com
+```
 
-## 4. Deploy Backend to Cloud Run
+## Step 4: Create Cloud SQL PostgreSQL Database
+This step will create the database instance. *Note: Creating a Cloud SQL instance may take 5-10 minutes.*
+```bash
+gcloud sql instances create travel-planner-db \
+    --database-version=POSTGRES_15 \
+    --cpu=1 --memory=4GB \
+    --region=us-central1 \
+    --root-password=super_secret_password
+```
+*(Feel free to change `super_secret_password` to something more secure before running the command).*
+
+Create the `travel_planner` database inside the instance:
+```bash
+gcloud sql databases create travel_planner --instance=travel-planner-db
+```
+
+## Step 5: Create an Artifact Registry
+This is where your Docker container images will be stored securely.
+```bash
+gcloud artifacts repositories create travel-planner-repo \
+    --repository-format=docker \
+    --location=us-central1
+```
+
+## Step 6: Build and Deploy the Backend
+First, build and submit the image to Artifact Registry:
+```bash
+cd backend
+gcloud builds submit --tag us-central1-docker.pkg.dev/travel-planner-495707/travel-planner-repo/backend
+```
+
+Then, deploy it to Cloud Run and attach the Cloud SQL database:
 ```bash
 gcloud run deploy travel-planner-backend \
-  --image us-central1-docker.pkg.dev/YOUR_PROJECT_ID/travel-planner-repo/backend \
+  --image us-central1-docker.pkg.dev/travel-planner-495707/travel-planner-repo/backend \
   --region us-central1 \
   --allow-unauthenticated \
-  --add-cloudsql-instances YOUR_PROJECT_ID:us-central1:YOUR_SQL_INSTANCE \
-  --set-env-vars DATABASE_URL="postgresql://user:pass@/travel_planner?host=/cloudsql/YOUR_PROJECT_ID:us-central1:YOUR_SQL_INSTANCE" \
+  --add-cloudsql-instances travel-planner-495707:us-central1:travel-planner-db \
+  --set-env-vars DATABASE_URL="postgresql://postgres:super_secret_password@/travel_planner?host=/cloudsql/travel-planner-495707:us-central1:travel-planner-db" \
   --set-env-vars USE_MOCK_DATA="True"
 ```
+*Wait for the deployment to finish. It will output a Service URL (e.g., `https://travel-planner-backend-xyz.a.run.app`). Copy this URL.*
 
-*Note: You can add your Google Maps API Key here via `--set-env-vars GOOGLE_MAPS_API_KEY="..."` and set `USE_MOCK_DATA="False"`.*
+## Step 7: Build and Deploy the Frontend
+Go back to the root folder and into the frontend folder:
+```bash
+cd ../frontend
+```
 
-## 5. Deploy Frontend to Cloud Run
+Now, build and push the frontend image (replace `[BACKEND_URL_FROM_STEP_6]` with the actual URL you copied):
+```bash
+gcloud builds submit --tag us-central1-docker.pkg.dev/travel-planner-495707/travel-planner-repo/frontend
+```
+
+Finally, deploy the frontend to Cloud Run:
 ```bash
 gcloud run deploy travel-planner-frontend \
-  --image us-central1-docker.pkg.dev/YOUR_PROJECT_ID/travel-planner-repo/frontend \
+  --image us-central1-docker.pkg.dev/travel-planner-495707/travel-planner-repo/frontend \
   --region us-central1 \
-  --allow-unauthenticated
+  --allow-unauthenticated \
+  --set-env-vars NEXT_PUBLIC_API_URL="[BACKEND_URL_FROM_STEP_6]/api"
 ```
+
+Once this finishes, Google Cloud Run will provide you with the public URL for your frontend. Click it, and your full-stack travel planner will be live!
