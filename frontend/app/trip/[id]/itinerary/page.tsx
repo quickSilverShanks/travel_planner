@@ -24,7 +24,8 @@ export default function Itinerary({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`http://localhost:8000/api/trips/${tripId}/itinerary`)
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+    fetch(`${apiUrl}/trips/${tripId}/itinerary`)
       .then((res) => res.json())
       .then((data) => {
         setItems(data);

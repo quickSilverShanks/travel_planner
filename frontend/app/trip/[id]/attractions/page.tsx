@@ -21,7 +21,8 @@ export default function AttractionsSelection({ params }: { params: { id: string 
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch(`http://localhost:8000/api/trips/${tripId}/attractions`)
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+    fetch(`${apiUrl}/trips/${tripId}/attractions`)
       .then((res) => res.json())
       .then((data) => {
         setAttractions(data);
@@ -50,14 +51,16 @@ export default function AttractionsSelection({ params }: { params: { id: string 
         })),
       };
       
-      await fetch(`http://localhost:8000/api/trips/${tripId}/preferences`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+      
+      await fetch(`${apiUrl}/trips/${tripId}/preferences`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(prefPayload),
       });
 
       // 2. Generate itinerary
-      await fetch(`http://localhost:8000/api/trips/${tripId}/generate`, {
+      await fetch(`${apiUrl}/trips/${tripId}/generate`, {
         method: "POST",
       });
 
