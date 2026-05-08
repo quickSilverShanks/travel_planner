@@ -6,8 +6,8 @@ import { MapPin, Navigation, ArrowLeft } from "lucide-react";
 
 type ItineraryItem = {
   id: number;
-  day_number: int;
-  visit_order: int;
+  day_number: number;
+  visit_order: number;
   start_time: string;
   end_time: string;
   travel_time_mins: number;
